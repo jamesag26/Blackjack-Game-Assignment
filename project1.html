@@ -1,0 +1,487 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=utf-8">
+	<TITLE>Blackjack by James Alford-Golojuch</TITLE>
+
+	<SCRIPT LANGUAGE="JavaScript">
+/* 
+CS316 program 1
+Author: James Alford-Golojuch
+Some function and variable names provided by professor Paul Linton along with code for functions shuffle() and calculate()
+All other code has been created.
+*/
+// NOTES: As noted for hit function the player and dealer's hands are stored in global arrays
+// this makes the use of array parameters unnecessary for hit()
+// Also I added a userHit() function to update user score when hitting and to determine if user busts or not
+// By using the functions I created for when a user is playing this also results in the screen being "updated"
+// in the for loop for run1000(). I found this did not actually affect the run time of the program.
+// I assume this means either the browser decides not to update the screen since there is such a short time between updates
+// or the screen is updating and the browser is able to update exceptionally fast not causing any significant slowdown in run time
+// All of my test runs took less than 30 seconds on Chrome browser
+
+// NOTE: I played around with a few different conditions in order to decide hit() value but the current implementation is the one that was most effective
+// I attempted checks for aces in hands to try to create special conditions for aces in hands but for some reason this exponentially increased the run time
+// Overall the increase in run time was not worth further testing with those conditions which leaves me with my current implementation
+// Run 1000 test runs winning percentage:
+//55.7%, 52.9%, 52.8%, 54.3%, 52.9%, 53.8%, 55.3%, 53.1%, 52.6%, 55%
+// Run 1000 test winning percentage when hitting with user score <13 rather than <12 
+//54.9, 55.1, 54, 52.7, 51.4, 55.6, 50.7, 55.4, 54, 55.2
+// Increasing the value from 12 to 13 and beyond made it so that though the percentages had higher fluctuation where values where both higher and lower
+// than win percentages for value of 12. So depending on how cautios and consistence and player wants to be the <x condition for hitting can be increased 
+// or decreased. <12 should be the lowest value since hitting on a value of 11 will guaruntee no bust
+//****************************** GLOBAL VARIABLES ***********************************************
+// DSIZE is size of deck: 52 for normal deck
+// Note: do not hardcode deck size. Use this variable
+// to simplify my (and your) testing
+var DSIZE = 52; // size of deck
+var MINSIZE = 10  // deck must have more than 20% of cards (20% of 52 = 10.4)
+var card = new Array(DSIZE); // shuffled deck
+var cardstart = new Array(DSIZE); // starting deck in order
+var cc; // index into card array during play
+var dealpressed = false;    // deal button has been pressed
+var playerhand = [];   // user hand
+var dealerhand = [];   // dealer hand
+var playerhandpaths = "";  // contains image paths of player hand
+var dealerhandpaths = "";   // contains image paths of dealer hand
+var games = 0;   // total games played
+var wins = 0;    // total games won by user
+
+// Put other global variables here ***********************************************************************
+shuffle();   // start with new deal
+// shuffle
+// This is one way to create a shuffled deck
+// reshuffle the cards, put in card array
+// Preconditions:
+//	New Deal button pressed
+// Postconditions:
+//	Card array filled and shuffled
+
+function shuffle() {  
+    // cardstart is unshuffled 1,2,3....
+    // card 1 is ace of clubs (1.png)
+    // card 2 is ace of spades (2.png)
+    // card 52 is 2 of diamonds (52.png)
+    for (var i = 0; i < DSIZE;i++) {
+	cardstart[i] = i+1;
+    }
+    // select card randomly from cardstart and put in card
+    var randcard; // randomly selected card 
+    for (var j = 0; j < DSIZE; j++) {
+	randcard = Math.round(Math.random() * (DSIZE - j - 1)); // choose card
+	card[j] = cardstart[randcard]; // store random card
+	cardstart.splice(randcard, 1); // pack array
+    }  
+    cc = 0;              // index into card array
+}
+
+// resetdata
+// reset all variables, screen fields to start fresh
+
+function resetdata() {
+    dealpressed = false;
+    // Empty arrays
+    dealerhand.length = 0;
+    playerhand.length = 0;
+    // Shuffle and reset deck
+    shuffle();
+    // Reset hand images
+    document.getElementById("mycards").innerHTML = "";
+    document.getElementById("dlcards").innerHTML = "";
+    playerhandpaths = "";
+    dealerhandpaths = "";
+    // Reset scores
+    document.JForm.opscore.value = 0;
+    document.JForm.myscore.value = 0; 
+    document.JForm.winning.value = 100;
+    document.JForm.myresult.value = "";
+    // Reset games and wins
+    games = 0;
+    wins = 0;
+}
+
+// calculate
+// calculate value of card
+// Preconditions:
+//	Card passed
+//	1 <= card <= 52
+// Postconditions:
+//	Card value returned
+function calculate(card) {
+    var value; // numerical value of card
+    if (card <= 4) {    // ace
+	value = 11;
+	return value; 
+    }
+    if (card <= 20) {   // face card or 10
+	value = 10;
+	return value;
+    }
+    if (card <= 24) {  // 9, and so forth
+	value = 9;
+	return value;
+    }    
+    if (card <= 28) {
+	value = 8;
+	return value;
+    }      
+    if (card <= 32) {
+	value = 7;
+	return value;
+    }    
+    if (card <= 36) {
+	value = 6;
+	return value;
+    }    
+    if (card <= 40) {
+	value = 5;
+	return value;
+    }    
+    if (card <= 44) {
+	value = 4;
+	return value;
+    }    
+    if (card <= 48) {
+	value = 3;
+	return value;
+    }   
+    value = 2;          // only 2 left
+    return value; 
+}
+
+// getcard
+// add card to eiher player or dealer hand, increment cc and display new card
+function getcard(user) {
+    // Gives a card to either user or dealer
+    if (user) {
+	playerhand.push(card[cc++]);
+        playerhandpaths += "<img src = 'cardFolder/"+playerhand[playerhand.length - 1]+".png' />";
+        document.getElementById("mycards").innerHTML = playerhandpaths;
+    } else {
+	dealerhand.push(card[cc++]);
+        dealerhandpaths += "<img src = 'cardFolder/"+dealerhand[dealerhand.length - 1]+".png' />";
+        document.getElementById("dlcards").innerHTML = dealerhandpaths;
+    } 
+}
+
+// run 1000 times
+function run1000() {
+    resetdata();
+    var i;
+    for (i=0;i<1000;i++) { 
+	shuffle();   // start with shuffled deck
+	deal();    // deal initial hand
+	// If no one got 21 on the deal then do logic for player/dealer
+	if (games != i + 1) {
+	    var userScore = findBestScore(true);
+	    var dealerScore = findBestScore(false);
+	    // While hit is true then keep getting cards and updating user score
+	    var shouldHit = hit(userScore, dealerScore);
+	    while(shouldHit == true) {
+		getcard(true);
+		userScore = findBestScore(true);
+		shouldHit = hit(userScore, dealerScore);
+	    }
+	    // User wins if score = 21 	
+	    if (userScore == 21) {
+		wins++;
+		handOver();
+	    // If userScore > 21 the user busts and game is over
+	    } else if (userScore > 21) {
+		handOver();
+	    // If game hasnt been won or lost by user then continue with dealer turn
+	    } else {
+	        run();
+	    }
+	}
+    }   
+}
+// hit
+// Determine whether to take one more card
+// Preconditions:
+//    playerhand - array of card values
+//	dealerhand - array of card values
+// Postconditions:
+//    returns true: take another card
+//            false: do not take card
+//    ace  11
+//    face card 10
+//    all others their value 
+// NOTE: Both the player and dealer's were already calculated in run1000 so to save compute time
+// those scores were passed on as parameters
+function hit(userScore, dealerScore) {
+    // Since most probable hit card is 10 then if user card < 12 then hit
+    // largest score you can get is 21 then (11 + 10)
+    if (userScore < 12) {
+        return true;
+    }
+
+    // Dealer must hit until dealerscore > 17 so user may as well hit until userScore > dealerScore or > 21
+    if ((dealerScore > 17) && (userScore < 21) && (userScore < dealerScore)) {
+	return true;
+    }
+    return false;
+}
+
+// Adds card to user hand and then checks for win/loss
+function userHit() {
+    // Adds card to user
+    getcard(true);
+    // Holds temp vals of cards to checks for winning/losing conditions from player
+    var score = findBestScore(true);
+    if (score > 21) {
+        document.JForm.myresult.value = "Loss";
+	document.JForm.myscore.value = "BUST"
+	handOver();
+    }
+    if (score == 21) {
+        document.JForm.myresult.value = "Win";
+	wins++;
+	handOver();
+    } 
+    // Update user score
+    document.JForm.myscore.value = score;
+}
+
+// Finds best score where if user is true then check user score and if false check dealer
+function findBestScore(user) {
+    // Holds temp vals of cards to check if 21 has been exceeded and player can n$
+    var bestScore = 0;
+    // Holds value for number of aces
+    var numAces = 0;
+    // Checks user score
+    if (user) {
+        for (var i=0; i < playerhand.length; i++) {
+            var cardVal = calculate(playerhand[i]);
+            // increase number of aces counter
+            if (cardVal == 11) {
+                numAces++;
+            } else {
+	        // Adds up score of cards with constant values
+                bestScore = bestScore + cardVal;
+            }
+        }
+    } else {  // checks dealer's score
+	for (var i=0; i < dealerhand.length; i++) {
+            var cardVal = calculate(dealerhand[i]);
+            // increase number of aces counter
+            if (cardVal == 11) {
+                numAces++;
+            } else {
+                // Adds up score of cards with constant values
+                bestScore = bestScore + cardVal;
+            }
+        }
+    }
+
+    // if aces exist then set value to 11 unless score exceeds 21 in which case value is 1
+    if (numAces > 0) {
+	// conditions if there is only 1 ace
+	if (numAces == 1) {
+	    // Check if a value of 11 would make best score greater than 21
+	    // if so then add 1 to best score
+	    if ((bestScore + 11) > 21) {
+		bestScore = bestScore + 1;
+	    } else {
+		bestScore = bestScore + 11;
+	    }
+	} else {
+	    // if there are multiple aces then all but 1 ace must have value 1
+	    // Ex. 11 + 11 > 21 so only 1 ace could possibly be 11
+	    for (var j=1; j < numAces; j++) {
+		bestScore = bestScore + 1;
+	    }
+	    // Check if last ace should have value of 1 or 11
+	    if ((bestScore + 11) > 21) {
+		bestScore = bestScore + 1;
+	    } else {
+		bestScore = bestScore + 11;
+	    }
+	}
+    }
+    return bestScore;
+}
+
+// run
+// after deal, determine whether to take card or not
+// Preconditions:
+//	Deal button pressed
+//      User hasn't bust or gotten 21 already
+// Postconditions:
+//	Game completed
+//	Results displayed 
+function run() {
+    // Due to the userHit function we know when stay is pressed and dealpressed is true
+    // that game has neither been won by either player getting 21 nor lost by user busting
+    if (dealpressed){
+	var dealScore = findBestScore(false);
+	var userScore = findBestScore(true);
+	// if score is less than 17 dealer must get a card
+	while (dealScore < 17) {
+	    getcard(false);
+	    dealScore = findBestScore(false);
+            document.JForm.opscore.value = dealScore;
+	}
+	// User hasnt busted or won and dealer's score is over 15
+	// Now check for winner
+	if (dealScore > 21 || userScore >= dealScore) {
+            document.JForm.myresult.value = "Win";
+	    wins++;
+	    handOver();
+	} else {
+            document.JForm.myresult.value = "Lose";
+	    handOver();
+	}
+    } else {
+	alert("Cards haven't been dealt yet");
+    }
+}
+
+// deal
+// start by dealing 2 cards to opponent and you
+function deal() {
+    // if cards already dealt then hit
+    if (dealpressed) {
+	userHit();
+	var userScore = userBestScore();
+        return;
+    }
+    // if there are less than 20% of deck remaining then cards must be shufled before cards can be dealt
+    if ((card.length - cc) <= MINSIZE) {
+        alert("Not enough cards remaining in deck. Deck must be shuffled before cards can be dealt.");
+        return;
+    }
+    // refreshes result of game display
+    document.JForm.myresult.value = "";
+    // draw two cards for each player, getcard(false) is for dealer, and true is for player
+    getcard(false);
+    getcard(false);
+    getcard(true);
+    getcard(true);
+    // Find dealer and user scores
+    var dlScore = findBestScore(false);
+    var myScore = findBestScore(true);
+    // display scores
+    document.JForm.opscore.value = dlScore;
+    document.JForm.myscore.value = myScore;
+    // If user has 21 game is over and user wins
+    if (myScore == 21) {
+	wins++;
+	handOver();
+	document.JForm.myresult.value = "Win";
+	return;
+    }
+    // If dealer has 21 and user doesnt then game is over dealer wins
+    else if (dlScore == 21)
+    {
+	handOver();
+	document.JForm.myresult.value = "Lose";
+	return;
+    } else {
+        dealpressed = true; // deal button has been pressed and game isnt over
+    }
+}
+
+// empties hands and clears display for next hand
+function handOver () {
+    games++;
+    var winPercent = (wins / games) * 100;
+    document.JForm.winning.value = winPercent;
+    // resets hands
+    dealerhand.length = 0;
+    playerhand.length = 0;
+    playerhandpaths = "";
+    dealerhandpaths = ""
+    dealpressed = false;
+}
+
+</SCRIPT>
+
+</HEAD>
+<BODY >
+<FORM NAME="JForm">
+<CENTER>
+	<TABLE CELLPADDING=2 CELLSPACING=2 STYLE="page-break-before: always">
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>New deal</P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Shuffle" STYLE="width: 1.08in; height: 0.4in" ONCLICK="shuffle();"> </P>
+			</TH>
+
+			<TH STYLE="border: none; padding: 0in">
+				<P>Reset</P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Reset" STYLE="width: 0.75in; height: 0.4in" ONCLICK="resetdata();"> </P>
+			</TH>
+		</TR>		<!-- row 1 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Dealer score: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="opscore" VALUE="0" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P>My score: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="myscore" VALUE="0" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+			<TD COLSPAN=2 VALIGN=TOP STYLE="border: none; padding: 0in"></TD>
+		</TR>		<!-- row 2 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Win/Loss?: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=TEXT NAME="myresult" VALUE="0" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+<!--			<TD COLSPAN=2 VALIGN=TOP STYLE="border: none; padding: 0in"></TD>  -->
+			<TH STYLE="border: none; padding: 0in">
+				<P>My win %: </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in"> 
+				<P><INPUT TYPE=TEXT NAME="winning" VALUE="100" SIZE=5 STYLE="width: 0.51in; height: 0.31in"> </P>
+			</TH>
+		
+			<TH STYLE="border: none; padding: 0in"></TH>
+			<TD VALIGN=TOP STYLE="border: none; padding: 0in"></TD>
+		</TR>		<!-- row 3 -->
+		<TR>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Deal/Hit</P> 
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Deal/Hit" STYLE="width: 0.64in; height: 0.4in" ONCLICK="deal();"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P>Stay</P> 
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+				<P><INPUT TYPE=BUTTON VALUE="Stay" STYLE="width: 0.59in; height: 0.4in" ONCLICK="run();"> </P>
+			</TH>
+			<TH STYLE="border: none; padding: 0in">
+                                <P>Run 1000 times</P>
+                        </TH>
+                         <TH STYLE="border: none; padding: 0in">
+                                <P><INPUT TYPE=BUTTON VALUE="Run" STYLE="width: 0.59in; height: 0.4in" ONCLICK="run1000();"> </P>
+                        </TH>
+
+		</TR>		<!-- row 4 -->
+	</TABLE>
+</CENTER>
+</FORM>
+<h2 align=center>Dealer's Cards</h2>
+<div id="dlcards" align=center> 
+	<h2  align=center></h2>
+</div>
+<h2  align=center> My Cards</h2>
+<div id="mycards" align=center >
+	<h2 class="WESTERN" align=center></h2>
+</div>
+
+</BODY>
+</HTML>
